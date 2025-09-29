@@ -15,8 +15,16 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
   error?: string;
 }> {
   try {
+    // For development, we need to handle both local and production blob URLs
+    let fetchUrl = blobUrl;
+
+    // In development, if the blob URL is from Vercel Blob, we need to use the full URL
+    if (blobUrl.includes('vercel-storage.com') && !blobUrl.startsWith('http')) {
+      fetchUrl = `https://${blobUrl}`;
+    }
+
     // Fetch the CSV file from blob storage
-    const response = await fetch(blobUrl);
+    const response = await fetch(fetchUrl);
     if (!response.ok) {
       throw new Error(`Failed to fetch file: ${response.statusText}`);
     }

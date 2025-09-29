@@ -31,10 +31,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload to Vercel Blob Storage
+    // Upload to Vercel Blob Storage with unique filename
     const blob = await put(file.name, file, {
       access: 'public',
       contentType: 'text/csv',
+      addRandomSuffix: true, // Generate unique filename to avoid conflicts
     });
 
     // Create database record for this upload

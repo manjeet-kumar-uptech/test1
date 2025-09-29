@@ -1,9 +1,10 @@
 import Papa from 'papaparse';
+import { parse } from 'csv-parse/sync';
 import { db } from './db';
 import { CsvUpload, CsvRow } from './db';
 
 export interface ParseResult {
-  data: Record<string, any>[];
+  data: Record<string, string | number>[];
   errors: Papa.ParseError[];
   meta: Papa.ParseMeta;
 }
@@ -22,27 +23,45 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
 
     const csvText = await response.text();
 
-    // Parse CSV using Papa Parser
-    const parseResult: ParseResult = await new Promise((resolve) => {
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: (header: string) => {
-          // Clean header names (remove spaces, special characters, make lowercase)
-          return header.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
-        },
-        complete: (results) => {
-          resolve(results as ParseResult);
-        },
-        error: (error) => {
-          resolve({
-            data: [],
-            errors: [error],
-            meta: {} as Papa.ParseMeta,
-          });
-        },
+    // Parse CSV using csv-parse library
+    let parseResult: ParseResult;
+    try {
+      const records = parse(csvText, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+        from_line: 1, // Skip header row as columns are already defined
+      }) as Record<string, string | number>[];
+
+      // Transform headers to clean format
+      const headers = Object.keys(records[0] || {}).map(header =>
+        header.trim().toLowerCase().replace(/[^a-z0-9]/g, '_')
+      );
+
+      // Transform data with cleaned headers
+      const transformedData = records.map((record: Record<string, string | number>) => {
+        const transformedRecord: Record<string, string | number> = {};
+        headers.forEach((header, i) => {
+          const originalHeader = Object.keys(records[0] || {})[i];
+          if (originalHeader && record[originalHeader] !== undefined) {
+            transformedRecord[header] = record[originalHeader];
+          }
+        });
+        return transformedRecord;
       });
-    });
+
+      parseResult = {
+        data: transformedData,
+        errors: [],
+        meta: { fields: headers } as Papa.ParseMeta,
+      };
+    } catch (error) {
+      parseResult = {
+        data: [],
+        errors: [{ type: 'Delimiter', code: 'MissingQuotes', message: error instanceof Error ? error.message : 'Parse error', row: 0 }],
+        meta: {} as Papa.ParseMeta,
+      };
+    }
 
     if (parseResult.errors.length > 0) {
       throw new Error(`CSV parsing errors: ${parseResult.errors.map(e => e.message).join(', ')}`);
@@ -73,7 +92,7 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
 
       await db`
         INSERT INTO csv_rows (upload_id, row_index, data)
-        VALUES ${db(batch.map(row => [row.uploadId, row.rowIndex, JSON.stringify(row.data)]))}
+        VALUES ${batch.map(row => [row.uploadId, row.rowIndex, JSON.stringify(row.data)])}
       `;
     }
 
@@ -123,7 +142,7 @@ export async function createCsvUploadRecord(
 export async function getCsvUploadStatus(uploadId: string): Promise<CsvUpload | null> {
   const result = await db`
     SELECT * FROM csv_uploads WHERE id = ${uploadId}
-  `;
+  ` as CsvUpload[];
 
   return result[0] || null;
 }

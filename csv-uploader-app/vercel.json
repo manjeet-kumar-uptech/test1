@@ -6,15 +6,13 @@
   "framework": "nextjs",
   "regions": ["iad1"],
   "functions": {
-    "src/app/api/**/*.ts": {
+    "app/api/**/*.ts": {
       "maxDuration": 30
     }
   },
   "env": {
     "DATABASE_URL": "@database-url",
-    "BLOB_READ_WRITE_TOKEN": "@blob-token",
-    "INNGEST_EVENT_KEY": "@inngest-event-key",
-    "INNGEST_SIGNING_KEY": "@inngest-signing-key"
+    "BLOB_READ_WRITE_TOKEN": "@blob-token"
   },
   "headers": [
     {

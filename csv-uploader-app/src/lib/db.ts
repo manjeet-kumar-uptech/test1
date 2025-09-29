@@ -24,6 +24,6 @@ export interface CsvRow {
   id: string;
   uploadId: string;
   rowIndex: number;
-  data: Record<string, any>;
+  data: Record<string, string | number>;
   createdAt: Date;
 }

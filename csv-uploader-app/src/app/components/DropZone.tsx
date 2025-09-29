@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useState } from 'react';
-import { useDropzone } from 'react-dropzone';
+import { useDropzone, FileRejection, ErrorCode } from 'react-dropzone';
 
 interface DropZoneProps {
   onFileUpload: (file: File) => void;
@@ -12,16 +12,16 @@ export default function DropZone({ onFileUpload, isUploading = false }: DropZone
   const [error, setError] = useState<string>('');
 
   const onDrop = useCallback(
-    (acceptedFiles: File[], rejectedFiles: any[]) => {
+    (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
       setError('');
 
       // Check for rejected files
       if (rejectedFiles.length > 0) {
-        const rejectionReasons = rejectedFiles.map(file => {
-          if (file.errors.some((error: any) => error.code === 'file-too-large')) {
+        const rejectionReasons = rejectedFiles.map(fileRejection => {
+          if (fileRejection.errors.some((error) => error.code === ErrorCode.FileTooLarge)) {
             return 'File is too large. Please select a file smaller than 10MB.';
           }
-          if (file.errors.some((error: any) => error.code === 'file-invalid-type')) {
+          if (fileRejection.errors.some((error) => error.code === ErrorCode.FileInvalidType)) {
             return 'Please select only CSV files.';
           }
           return 'File was rejected.';

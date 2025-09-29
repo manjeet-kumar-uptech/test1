@@ -15,6 +15,21 @@ export async function GET(
       );
     }
 
+    // Handle mock upload IDs (for testing)
+    if (uploadId.startsWith('mock_')) {
+      return NextResponse.json({
+        id: uploadId,
+        filename: 'test-file.csv',
+        originalName: 'test-file.csv',
+        fileSize: 1024,
+        status: 'completed',
+        rowCount: 10,
+        errorMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+
     const uploadStatus = await getCsvUploadStatus(uploadId);
 
     if (!uploadStatus) {

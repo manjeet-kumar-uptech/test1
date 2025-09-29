@@ -26,9 +26,6 @@ export default function Home() {
         // Don't set Content-Type header - let the browser set it for FormData
       });
 
-      const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-      console.log('Blob token PPP:', blobToken);
-
       console.log('Upload response status:', response.status);
       console.log('Upload response headers:', Object.fromEntries(response.headers));
 

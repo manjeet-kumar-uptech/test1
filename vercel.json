@@ -11,8 +11,8 @@
     }
   },
   "env": {
-    "DATABASE_URL": "NEON_DB_URL",
-    "BLOB_READ_WRITE_TOKEN": "BLOB_TOKEN"
+    "DATABASE_URL": "@neon_database_url",
+    "BLOB_READ_WRITE_TOKEN": "@vercel_blob_token"
   },
   "headers": [
     {

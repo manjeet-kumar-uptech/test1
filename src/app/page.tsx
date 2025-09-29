@@ -59,6 +59,8 @@ export default function Home() {
       if (response.ok) {
         const status = await response.json();
 
+        console.log('Status:', status);
+
         if (status.status === 'completed') {
           setUploadStatus(`✅ CSV processing completed! ${status.rowCount || 0} rows imported successfully.`);
         } else if (status.status === 'failed') {

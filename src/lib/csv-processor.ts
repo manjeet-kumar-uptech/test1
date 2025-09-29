@@ -15,6 +15,7 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
   error?: string;
 }> {
   try {
+    console.log(`Processing CSV file: ${uploadId} from ${blobUrl}`);
     // For development, we need to handle both local and production blob URLs
     let fetchUrl = blobUrl;
 
@@ -80,11 +81,17 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
     }
 
     // Update upload status to processing
-    await db`
-      UPDATE csv_uploads
-      SET status = 'processing', updated_at = NOW()
-      WHERE id = ${uploadId}
-    `;
+    try {
+      await db`
+        UPDATE csv_uploads
+        SET status = 'processing', updated_at = NOW()
+        WHERE id = ${uploadId}
+      `;
+      console.log(`Updated upload status to processing: ${uploadId}`);
+    } catch (updateError) {
+      console.error('Error updating upload status to processing:', updateError);
+      throw new Error(`Failed to update upload status: ${updateError instanceof Error ? updateError.message : 'Unknown error'}`);
+    }
 
     // Save CSV rows to database
     const csvRows: Omit<CsvRow, 'id' | 'createdAt'>[] = parseResult.data.map((row, index) => ({
@@ -98,10 +105,16 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
     for (let i = 0; i < csvRows.length; i += batchSize) {
       const batch = csvRows.slice(i, i + batchSize);
 
-      await db`
-        INSERT INTO csv_rows (upload_id, row_index, data)
-        VALUES ${batch.map(row => [row.uploadId, row.rowIndex, JSON.stringify(row.data)])}
-      `;
+      try {
+        await db`
+          INSERT INTO csv_rows (upload_id, row_index, data)
+          VALUES ${batch.map(row => [row.uploadId, row.rowIndex, JSON.stringify(row.data)])}
+        `;
+        console.log(`Inserted batch of ${batch.length} rows for upload ${uploadId}`);
+      } catch (insertError) {
+        console.error('Error inserting CSV rows:', insertError);
+        throw new Error(`Failed to insert CSV data: ${insertError instanceof Error ? insertError.message : 'Unknown error'}`);
+      }
     }
 
     // Update upload status to completed

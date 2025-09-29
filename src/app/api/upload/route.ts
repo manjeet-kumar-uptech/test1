@@ -2,13 +2,21 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { createCsvUploadRecord, processCsvFile } from '@/lib/csv-processor';
 
-console.log('BLOB_READ_WRITE_TOKEN available:', !!process.env.BLOB_READ_WRITE_TOKEN);
 
 export async function POST(request: NextRequest) {
   try {
-    // Check if blob token is available
+    console.log('Environment check - DATABASE_URL:', !!process.env.DATABASE_URL);
+    console.log('Environment check - BLOB_READ_WRITE_TOKEN:', !!process.env.BLOB_READ_WRITE_TOKEN);
+
+    // Check if required environment variables are available
+    if (!process.env.DATABASE_URL) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 500 }
+      );
+    }
+
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      console.error('BLOB_READ_WRITE_TOKEN not found');
       return NextResponse.json(
         { error: 'Blob storage not configured' },
         { status: 500 }
@@ -17,13 +25,6 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
-
-    if (!file) {
-      return NextResponse.json(
-        { error: 'No file provided' },
-        { status: 400 }
-      );
-    }
 
     // Validate file type
     if (!file.name.toLowerCase().endsWith('.csv')) {
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create database record for this upload
+    console.log('About to create database record');
     let uploadId;
     try {
       uploadId = await createCsvUploadRecord(
@@ -59,10 +61,11 @@ export async function POST(request: NextRequest) {
         file.size,
         blob.url
       );
+      console.log('Database record created successfully:', uploadId);
     } catch (dbError) {
       console.error('Database error creating upload record:', dbError);
       return NextResponse.json(
-        { error: 'Failed to create upload record' },
+        { error: `Failed to create upload record: ${dbError instanceof Error ? dbError.message : 'Unknown error'}` },
         { status: 500 }
       );
     }
@@ -72,6 +75,7 @@ export async function POST(request: NextRequest) {
       console.error(`Failed to process CSV file ${uploadId}:`, error);
     });
 
+    console.log('Upload successful, returning response');
     return NextResponse.json({
       id: uploadId,
       filename: file.name,

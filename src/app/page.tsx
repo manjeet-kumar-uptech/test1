@@ -15,10 +15,15 @@ export default function Home() {
       const formData = new FormData();
       formData.append('file', file);
 
+      console.log('Making upload request...');
       const response = await fetch('/api/upload', {
         method: 'POST',
         body: formData,
+        // Don't set Content-Type header - let the browser set it for FormData
       });
+
+      console.log('Upload response status:', response.status);
+      console.log('Upload response headers:', Object.fromEntries(response.headers));
 
       if (response.ok) {
         const result = await response.json();

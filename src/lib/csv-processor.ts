@@ -137,14 +137,19 @@ export async function createCsvUploadRecord(
   fileSize: number,
   blobUrl: string
 ): Promise<string> {
-  const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  try {
+    const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  await db`
-    INSERT INTO csv_uploads (id, filename, original_name, file_size, blob_url, status)
-    VALUES (${uploadId}, ${filename}, ${originalName}, ${fileSize}, ${blobUrl}, 'pending')
-  `;
+    await db`
+      INSERT INTO csv_uploads (id, filename, original_name, file_size, blob_url, status)
+      VALUES (${uploadId}, ${filename}, ${originalName}, ${fileSize}, ${blobUrl}, 'pending')
+    `;
 
-  return uploadId;
+    return uploadId;
+  } catch (error) {
+    console.error('Error creating CSV upload record:', error);
+    throw new Error(`Database error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 export async function getCsvUploadStatus(uploadId: string): Promise<CsvUpload | null> {

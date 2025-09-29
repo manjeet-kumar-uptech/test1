@@ -27,8 +27,12 @@ export default function Home() {
         // Start polling for status updates
         pollUploadStatus(result.id);
       } else {
-        const error = await response.json();
-        setUploadStatus(`❌ Upload failed: ${error.error}`);
+        try {
+          const error = await response.json();
+          setUploadStatus(`❌ Upload failed: ${error.error || 'Server error'}`);
+        } catch (parseError) {
+          setUploadStatus(`❌ Upload failed: Server error (${response.status})`);
+        }
       }
     } catch (error) {
       setUploadStatus('❌ Upload failed: Network error');

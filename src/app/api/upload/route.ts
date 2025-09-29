@@ -5,17 +5,23 @@ import { createCsvUploadRecord, processCsvFile } from '@/lib/csv-processor';
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('POST /api/upload called');
     console.log('Environment check - DATABASE_URL:', !!process.env.DATABASE_URL);
     console.log('Environment check - BLOB_READ_WRITE_TOKEN:', !!process.env.BLOB_READ_WRITE_TOKEN);
 
-    // Check if required environment variables are available
-    if (!process.env.DATABASE_URL) {
+    const formData = await request.formData();
+    const file = formData.get('file') as File;
+
+    console.log('File received:', file ? file.name : 'No file');
+
+    if (!file) {
       return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 500 }
+        { error: 'No file provided' },
+        { status: 400 }
       );
     }
 
+    // Check environment variables
     if (!process.env.BLOB_READ_WRITE_TOKEN) {
       return NextResponse.json(
         { error: 'Blob storage not configured' },
@@ -23,65 +29,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-
-    // Validate file type
-    if (!file.name.toLowerCase().endsWith('.csv')) {
-      return NextResponse.json(
-        { error: 'Only CSV files are allowed' },
-        { status: 400 }
-      );
-    }
-
-    // Validate file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'File size must be less than 10MB' },
-        { status: 400 }
-      );
-    }
-
-    // Upload to Vercel Blob Storage with unique filename
-    const timestamp = Date.now();
-    const uniqueFileName = `${timestamp}_${file.name}`;
-    const blob = await put(uniqueFileName, file, {
-      access: 'public',
-      contentType: 'text/csv',
-    });
-
-    // Create database record for this upload
-    console.log('About to create database record');
-    let uploadId;
+    console.log('About to test blob upload');
     try {
-      uploadId = await createCsvUploadRecord(
-        blob.pathname.split('/').pop() || file.name, // filename from blob path
-        file.name, // original filename
-        file.size,
-        blob.url
-      );
-      console.log('Database record created successfully:', uploadId);
-    } catch (dbError) {
-      console.error('Database error creating upload record:', dbError);
+      // Test blob upload with a simple text file
+      const testContent = 'test content';
+      const blob = await put(`test_${Date.now()}.txt`, testContent, {
+        access: 'public',
+        contentType: 'text/plain',
+      });
+      console.log('Blob upload test successful:', blob.url);
+    } catch (blobError) {
+      console.error('Blob upload test failed:', blobError);
       return NextResponse.json(
-        { error: `Failed to create upload record: ${dbError instanceof Error ? dbError.message : 'Unknown error'}` },
+        { error: `Blob upload failed: ${blobError instanceof Error ? blobError.message : 'Unknown error'}` },
         { status: 500 }
       );
     }
 
-    // Process the CSV file asynchronously (don't await to avoid timeout)
-    processCsvFile(blob.url, uploadId).catch(error => {
-      console.error(`Failed to process CSV file ${uploadId}:`, error);
-    });
+    // For testing, just return success without processing
+    const mockId = `mock_${Date.now()}`;
+    console.log('Mock upload successful');
 
-    console.log('Upload successful, returning response');
     return NextResponse.json({
-      id: uploadId,
+      id: mockId,
       filename: file.name,
       size: file.size,
-      url: blob.url,
-      message: 'File uploaded successfully. CSV processing has started.',
+      message: 'File received successfully (mock response)',
     });
 
   } catch (error) {

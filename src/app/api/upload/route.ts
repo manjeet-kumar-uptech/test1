@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
+import { createCsvUploadRecord, processCsvFile } from '@/lib/csv-processor';
 
 // Ensure the blob token is available for the SDK
 if (typeof process !== 'undefined' && process.env?.BLOB_READ_WRITE_TOKEN) {
@@ -10,15 +11,6 @@ if (typeof process !== 'undefined' && process.env?.BLOB_READ_WRITE_TOKEN) {
 export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/upload called');
-
-    // Test environment variable loading
-    const dbUrl = process.env.DATABASE_URL;
-    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-
-    console.log('DATABASE_URL exists:', !!dbUrl);
-    console.log('BLOB_READ_WRITE_TOKEN exists:', !!blobToken);
-    console.log('DATABASE_URL sample:', dbUrl?.substring(0, 30) + '...');
-    console.log('BLOB_READ_WRITE_TOKEN sample:', blobToken?.substring(0, 30) + '...');
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -41,13 +33,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Test blob upload with proper token handling
+    // Upload the actual file to Vercel Blob Storage
     try {
-      console.log('Testing blob upload...');
-      const testContent = 'test content for debugging';
-      const blob = await put(`debug_${Date.now()}.txt`, testContent, {
+      console.log('Uploading file to blob storage:', file.name, file.size, file.type);
+      const timestamp = Date.now();
+      const uniqueFileName = `${timestamp}_${file.name}`;
+      const blob = await put(uniqueFileName, file, {
         access: 'public',
-        contentType: 'text/plain',
+        contentType: 'text/csv',
       });
       console.log('Blob upload successful:', blob.url);
     } catch (blobError) {
@@ -60,15 +53,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For testing, just return success without processing
-    const mockId = `mock_${Date.now()}`;
-    console.log('Mock upload successful');
+    // Create database record for this upload
+    console.log('About to create database record');
+    let uploadId;
+    try {
+      uploadId = await createCsvUploadRecord(
+        blob.pathname.split('/').pop() || file.name, // filename from blob path
+        file.name, // original filename
+        file.size,
+        blob.url
+      );
+      console.log('Database record created successfully:', uploadId);
+    } catch (dbError) {
+      console.error('Database error creating upload record:', dbError);
+      return NextResponse.json(
+        { error: `Failed to create upload record: ${dbError instanceof Error ? dbError.message : 'Unknown error'}` },
+        { status: 500 }
+      );
+    }
+
+    // Process the CSV file asynchronously (don't await to avoid timeout)
+    processCsvFile(blob.url, uploadId).catch(error => {
+      console.error(`Failed to process CSV file ${uploadId}:`, error);
+    });
 
     return NextResponse.json({
-      id: mockId,
+      id: uploadId,
       filename: file.name,
       size: file.size,
-      message: 'File received successfully (mock response)',
+      url: blob.url,
+      message: 'File uploaded successfully. CSV processing has started.',
     });
 
   } catch (error) {

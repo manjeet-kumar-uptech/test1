@@ -34,7 +34,9 @@ export default function Home() {
         setUploadStatus(`✅ File uploaded successfully! Processing with ID: ${result.id}`);
 
         // Start polling for status updates
-        pollUploadStatus(result.id);
+        if (result.id && !result.id.startsWith('mock_')) {
+          pollUploadStatus(result.id);
+        }
       } else {
         try {
           const error = await response.json();
@@ -58,13 +60,16 @@ export default function Home() {
         const status = await response.json();
 
         if (status.status === 'completed') {
-          setUploadStatus(`✅ CSV processing completed! ${status.rowCount} rows imported successfully.`);
+          setUploadStatus(`✅ CSV processing completed! ${status.rowCount || 0} rows imported successfully.`);
         } else if (status.status === 'failed') {
           setUploadStatus(`❌ Processing failed: ${status.errorMessage}`);
         } else if (status.status === 'processing') {
           setUploadStatus(`🔄 Processing CSV file... ${status.rowCount || 0} rows processed so far.`);
-
           // Continue polling if still processing
+          setTimeout(() => pollUploadStatus(uploadId), 2000);
+        } else {
+          // Upload exists but status is not set yet
+          setUploadStatus(`📝 Upload created. Processing will start soon...`);
           setTimeout(() => pollUploadStatus(uploadId), 2000);
         }
       }

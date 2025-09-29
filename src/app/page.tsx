@@ -8,12 +8,16 @@ export default function Home() {
   const [uploadStatus, setUploadStatus] = useState<string>('');
 
   const handleFileUpload = async (file: File) => {
+    console.log('File received in handleFileUpload:', file.name, file.size, file.type);
     setIsUploading(true);
     setUploadStatus('');
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+
+      console.log('FormData created, keys:', Array.from(formData.keys()));
+      console.log('File in FormData:', formData.get('file'));
 
       console.log('Making upload request...');
       const response = await fetch('/api/upload', {

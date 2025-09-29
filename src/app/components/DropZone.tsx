@@ -13,6 +13,9 @@ export default function DropZone({ onFileUpload, isUploading = false }: DropZone
 
   const onDrop = useCallback(
     (acceptedFiles: File[], rejectedFiles: FileRejection[]) => {
+      console.log('=== DropZone onDrop called ===');
+      console.log('Accepted files:', acceptedFiles.length, acceptedFiles.map(f => ({ name: f.name, size: f.size, type: f.type })));
+      console.log('Rejected files:', rejectedFiles.length, rejectedFiles.map(f => ({ name: f.file.name, errors: f.errors })));
       setError('');
 
       // Check for rejected files
@@ -33,6 +36,7 @@ export default function DropZone({ onFileUpload, isUploading = false }: DropZone
       // Handle accepted files
       if (acceptedFiles.length > 0) {
         const file = acceptedFiles[0];
+        console.log('File accepted by DropZone:', file.name, file.size, file.type);
         onFileUpload(file);
       }
     },
@@ -49,13 +53,26 @@ export default function DropZone({ onFileUpload, isUploading = false }: DropZone
     maxFiles: 1,
     maxSize: 10 * 1024 * 1024, // 10MB
     disabled: isUploading,
+    onDropAccepted: (files) => {
+      console.log('=== onDropAccepted called ===');
+      console.log('Files accepted:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
+    },
+    onDropRejected: (files) => {
+      console.log('=== onDropRejected called ===');
+      console.log('Files rejected:', files.map(f => ({ name: f.file.name, errors: f.errors })));
+    },
+    onError: (error) => {
+      console.error('=== DropZone error ===', error);
+    },
   });
+
+  console.log('DropZone props:', { getRootProps: typeof getRootProps, getInputProps: typeof getInputProps });
 
   return (
     <div className="w-full max-w-md mx-auto">
       <div
         {...getRootProps()}
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+        className={`relative border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
           isDragActive
             ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20'
             : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'

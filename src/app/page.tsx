@@ -39,7 +39,7 @@ export default function Home() {
         try {
           const error = await response.json();
           setUploadStatus(`❌ Upload failed: ${error.error || 'Server error'}`);
-        } catch (parseError) {
+        } catch {
           setUploadStatus(`❌ Upload failed: Server error (${response.status})`);
         }
       }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
-import { createCsvUploadRecord, processCsvFile } from '@/lib/csv-processor';
 
 // Ensure the blob token is available for the SDK
 if (typeof process !== 'undefined' && process.env?.BLOB_READ_WRITE_TOKEN) {
@@ -52,10 +51,11 @@ export async function POST(request: NextRequest) {
       });
       console.log('Blob upload successful:', blob.url);
     } catch (blobError) {
-      console.error('Blob upload failed:', blobError.message);
-      console.error('Error type:', blobError.constructor.name);
+      console.error('Blob upload failed:', blobError);
+      const errorMessage = blobError instanceof Error ? blobError.message : 'Unknown blob upload error';
+      console.error('Error type:', blobError instanceof Error ? blobError.constructor.name : 'Unknown');
       return NextResponse.json(
-        { error: `Blob upload failed: ${blobError.message}` },
+        { error: `Blob upload failed: ${errorMessage}` },
         { status: 500 }
       );
     }

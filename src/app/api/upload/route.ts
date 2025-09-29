@@ -32,6 +32,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    console.log('Blob token:', blobToken);
+
     // Check environment variables
     if (!blobToken) {
       console.error('BLOB_READ_WRITE_TOKEN not loaded from environment');

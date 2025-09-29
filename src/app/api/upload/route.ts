@@ -12,6 +12,16 @@ export async function POST(request: NextRequest) {
   try {
     console.log('POST /api/upload called');
 
+    // Check environment variables
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!blobToken) {
+      console.error('BLOB_READ_WRITE_TOKEN not loaded from environment');
+      return NextResponse.json(
+        { error: 'Blob storage not configured' },
+        { status: 500 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get('file') as File;
 
@@ -24,21 +34,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check environment variables
-    if (!blobToken) {
-      console.error('BLOB_READ_WRITE_TOKEN not loaded from environment');
-      return NextResponse.json(
-        { error: 'Blob storage not configured' },
-        { status: 500 }
-      );
-    }
-
     // Upload the actual file to Vercel Blob Storage
+    let blob;
     try {
       console.log('Uploading file to blob storage:', file.name, file.size, file.type);
       const timestamp = Date.now();
       const uniqueFileName = `${timestamp}_${file.name}`;
-      const blob = await put(uniqueFileName, file, {
+      blob = await put(uniqueFileName, file, {
         access: 'public',
         contentType: 'text/csv',
       });
@@ -58,10 +60,10 @@ export async function POST(request: NextRequest) {
     let uploadId;
     try {
       uploadId = await createCsvUploadRecord(
-        blob.pathname.split('/').pop() || file.name, // filename from blob path
+        blob!.pathname.split('/').pop() || file.name, // filename from blob path
         file.name, // original filename
         file.size,
-        blob.url
+        blob!.url
       );
       console.log('Database record created successfully:', uploadId);
     } catch (dbError) {
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Process the CSV file asynchronously (don't await to avoid timeout)
-    processCsvFile(blob.url, uploadId).catch(error => {
+    processCsvFile(blob!.url, uploadId).catch(error => {
       console.error(`Failed to process CSV file ${uploadId}:`, error);
     });
 

@@ -1,7 +1,15 @@
 import Papa from 'papaparse';
 import { parse } from 'csv-parse/sync';
-import { db } from './db';
+import { neon } from '@neondatabase/serverless';
 import { CsvUpload, CsvRow } from './db';
+
+// Lazy database connection - only create when needed
+function getDb() {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL environment variable is required');
+  }
+  return neon(process.env.DATABASE_URL);
+}
 
 export interface ParseResult {
   data: Record<string, string | number>[];
@@ -82,6 +90,7 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
 
     // Update upload status to processing
     try {
+      const db = getDb();
       await db`
         UPDATE csv_uploads
         SET status = 'processing', updated_at = NOW()
@@ -106,6 +115,7 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
       const batch = csvRows.slice(i, i + batchSize);
 
       try {
+        const db = getDb();
         await db`
           INSERT INTO csv_rows (upload_id, row_index, data)
           VALUES ${batch.map(row => [row.uploadId, row.rowIndex, JSON.stringify(row.data)])}
@@ -118,6 +128,7 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
     }
 
     // Update upload status to completed
+    const db = getDb();
     await db`
       UPDATE csv_uploads
       SET status = 'completed', row_count = ${csvRows.length}, updated_at = NOW()
@@ -131,11 +142,16 @@ export async function processCsvFile(blobUrl: string, uploadId: string): Promise
 
   } catch (error) {
     // Update upload status to failed
-    await db`
-      UPDATE csv_uploads
-      SET status = 'failed', error_message = ${error instanceof Error ? error.message : 'Unknown error'}, updated_at = NOW()
-      WHERE id = ${uploadId}
-    `;
+    try {
+      const db = getDb();
+      await db`
+        UPDATE csv_uploads
+        SET status = 'failed', error_message = ${error instanceof Error ? error.message : 'Unknown error'}, updated_at = NOW()
+        WHERE id = ${uploadId}
+      `;
+    } catch (updateError) {
+      console.error('Error updating upload status to failed:', updateError);
+    }
 
     return {
       success: false,
@@ -152,6 +168,7 @@ export async function createCsvUploadRecord(
 ): Promise<string> {
   try {
     const uploadId = `upload_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const db = getDb();
 
     await db`
       INSERT INTO csv_uploads (id, filename, original_name, file_size, blob_url, status)
@@ -166,6 +183,7 @@ export async function createCsvUploadRecord(
 }
 
 export async function getCsvUploadStatus(uploadId: string): Promise<CsvUpload | null> {
+  const db = getDb();
   const result = await db`
     SELECT * FROM csv_uploads WHERE id = ${uploadId}
   ` as CsvUpload[];
